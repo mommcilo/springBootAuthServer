@@ -21,9 +21,12 @@ import org.springframework.security.web.authentication.www.BasicAuthenticationFi
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.filter.CompositeFilter;
 
 import javax.servlet.Filter;
 import java.security.Principal;
+import java.util.ArrayList;
+import java.util.List;
 
 
 @SpringBootApplication
@@ -47,11 +50,23 @@ public class SimpleApplication extends WebSecurityConfigurerAdapter{
 	}
 
 	private Filter ssoFilter() {
+		CompositeFilter filter = new CompositeFilter();
+		List<Filter> filters = new ArrayList<>();
+
 		OAuth2ClientAuthenticationProcessingFilter facebookFilter = new OAuth2ClientAuthenticationProcessingFilter("/login/facebook");
 		OAuth2RestTemplate facebookTemplate = new OAuth2RestTemplate(facebook(), oAuth2ClientContext);
 		facebookFilter.setRestTemplate(facebookTemplate);
 		facebookFilter.setTokenServices(new UserInfoTokenServices(facebookResource().getUserInfoUri(), facebook().getClientId()));
-		return facebookFilter;
+		filters.add(facebookFilter);
+
+		OAuth2ClientAuthenticationProcessingFilter githubFilter = new OAuth2ClientAuthenticationProcessingFilter("/login/github");
+		OAuth2RestTemplate githubTemplate = new OAuth2RestTemplate(github(), oAuth2ClientContext);
+		githubFilter.setRestTemplate(githubTemplate);
+		githubFilter.setTokenServices(new UserInfoTokenServices(githubResource().getUserInfoUri(), github().getClientId()));
+		filters.add(githubFilter);
+
+		filter.setFilters(filters);
+		return filter;
 	}
 
 	@Bean
@@ -61,8 +76,20 @@ public class SimpleApplication extends WebSecurityConfigurerAdapter{
 	}
 
 	@Bean
+	@ConfigurationProperties("github.client")
+	public AuthorizationCodeResourceDetails github() {
+		return new AuthorizationCodeResourceDetails();
+	}
+
+	@Bean
 	@ConfigurationProperties("facebook.resource")
 	public ResourceServerProperties facebookResource(){
+		return new ResourceServerProperties();
+	}
+
+	@Bean
+	@ConfigurationProperties("github.resource")
+	public ResourceServerProperties githubResource() {
 		return new ResourceServerProperties();
 	}
 
